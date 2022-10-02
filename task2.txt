@@ -1,0 +1,76 @@
+1. Доработать задачу про "модель БР" следующим образом:
+
+- разработать интерфейс сервиса IStrikeService и его реализацию по шаблону, представленному ниже:
+    class IStrikeService {
+        public:
+            enum EStatus : int {
+                READY = 0,
+                IN_PROGRESS,
+                POOR_INPUT,
+                // ...
+            };
+
+        public:
+            virtual long addStrikeElement(const tPoint& p_from, const tPoint& p_to, double p_maxH, double p_t0 = 0) = 0;
+            virtual EStatus getStatus(long p_id) = 0;
+            virtual void moveElement(long p_id, double p_t) = 0;
+            virtual const tPoint& position(long p_id) const = 0;
+    };
+
+- реализация сервиса должна быть потокобезопасной (т.е. несколько потоков одновременно могут выполнять как addStrikeElement, так и moveElement/position)
+- сервис должен быть реализован как Singleton, т.е. доступ к его функциям должен быть реализован через единственный экземпляр. Пример использования ниже.
+    IStrikeService* instance = StrikeService::instance();
+    long id = instance->addStrikeElement(...);
+    if (instance->getStatus(id) == READY) {
+        ...
+        instance->moveElement(id, ...);
+        const tPoint& p = instance->position(id);
+        ...
+    }
+- предполагается, что после вызова метода addStrikeElement инициируется вычисление всех точек развертки траектории от точки старта до точки падения
+  с некоторым шагом (в зависимости от выбранной модели "БР" это может занимать продолжительное время и поэтому должно выполняться в отдельном потоке),
+  а методы moveElement/position для работы пользуются интерполяцией (для простоты линейной) между полученными опорными точками развертки (и поэтому
+  работают быстро).
+
+
+
+2. *Факультативно* сделать так, чтобы в IStrikeService можно было передавать разные модели движения (не только параболу). Для этого:
+- используя интерфейс IFlightTask и шаблоны Factory или Builder создавать экземпляр класса, реализующего различные модели движения.
+- вынести параметры полетного задания во вне, т.е. изменить сигнатуру метода добавления элемента удара на IStrikeService.addStrikeElement(IFlightTask*). 
+- как следствие - избавиться от шаблона tMover в tElement. Для этого использовать интерфейс tFlightModel
+ 
+Пример использования шаблона Builder:
+    IFlightTask model = ParabolaBuilder()
+                       .setLaunchPoint(...)
+                       .setBoomPoint(...)
+                       .setLaunchTime(...)
+                       .setHeight(...)
+                       .create();
+
+Пример интерфейса tFlightModel:
+    class IFlightTask {
+        public:
+            virtual double flightT() const = 0;
+            virtual const tPoint& position() const = 0;
+            virtual void Move(double t) = 0;
+    };
+
+... а его "параболическая" реализация у вас уже есть:
+    class Parabola : public IFlightTask {
+        public:
+            Parabola(const tPoint& p_from, const tPoint& p_to, double p_maxH) {
+                // TODO
+            }
+
+            double flightT() const {
+                // TODO
+            }
+
+            const tPoint& position() const {
+                // TODO
+            }
+
+            void Move(double t) {
+                // TODO
+            }
+    };
